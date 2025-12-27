@@ -1,0 +1,19 @@
+# RNA-seq data & outputs 
+fastq*/
+Trimmed/
+fastqc/
+fastp/
+Counts/
+results/
+
+# Alignment files 
+*.bam 
+*.sam 
+
+# FASTQ files 
+*.fastq 
+*.fastq.gz 
+
+# QC reports 
+*.html 
+*.json
