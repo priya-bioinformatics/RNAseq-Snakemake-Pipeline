@@ -1,0 +1,7 @@
+samples:
+  - SRR1039508
+  - SRR1039509
+
+fastq_dir: "/kaggle/working/RNA_seq_pipeline/fastq"
+hisat2_index: "/kaggle/input/grch38-genome/genome"
+gtf: "/kaggle/input/gtf-file/Homo_sapiens.GRCh38.109.gtf"
