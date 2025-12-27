@@ -24,9 +24,8 @@ snakemake --cores 4
 QC reports (HTML)
 Gene count matrix (featurecounts.txt)
 
-Author: Priya Bhuiya
-Bioinformatics Enthusiast | RNA-seq & Dry-Lab Data
-Notebook Link: https://www.kaggle.com/code/priyabioinformatics/rna-seq-pipeline-from-fastq-to-gene-counts
+# Kaggle Notebook:
+https://www.kaggle.com/code/priyabioinformatics/rna-seq-pipeline-from-fastq-to-gene-counts
 
 Author: Priya Bhuiya
 Bioinformatics Enthusiast | RNA-seq & Dry-Lab Data
