@@ -1,0 +1,111 @@
+configfile: "RNA_seq_pipeline/config.yaml"
+
+SAMPLES = config["samples"]
+FASTQ_DIR = config["fastq_dir"]
+HISAT2_INDEX = config["hisat2_index"]
+GTF = config["gtf"]
+
+rule all:
+    input:
+        # Final outputs
+        expand("RNA_seq_pipeline/alignment/{sample}.bam", sample=SAMPLES),
+        "RNA_seq_pipeline/counts/featurecounts.txt",
+        "RNA_seq_pipeline/results/multiqc_raw.html",      # MultiQC before trimming
+        "RNA_seq_pipeline/results/multiqc_trimmed.html"   # MultiQC after Fastp
+
+# 1. Download FASTQ from SRA
+rule download_fastq:
+    output:
+        FASTQ_DIR + "/{sample}_1.fastq.gz",
+        FASTQ_DIR + "/{sample}_2.fastq.gz"
+    shell:
+        """
+        fastq-dump --split-files --gzip {wildcards.sample} -O {FASTQ_DIR}
+        """
+
+# 2. FastQC on raw reads
+rule fastqc_raw:
+    input:
+        r1 = FASTQ_DIR + "/{sample}_1.fastq.gz",
+        r2 = FASTQ_DIR + "/{sample}_2.fastq.gz"
+    output:
+        "RNA_seq_pipeline/fastqc/{sample}_1_fastqc.html",
+        "RNA_seq_pipeline/fastqc/{sample}_2_fastqc.html"
+    shell:
+        """
+        fastqc {input.r1} {input.r2} -o RNA_seq_pipeline/fastqc
+        """
+
+# 3. MultiQC for raw reads
+rule multiqc_raw:
+    input:
+        expand("RNA_seq_pipeline/fastqc/{sample}_1_fastqc.html", sample=SAMPLES),
+        expand("RNA_seq_pipeline/fastqc/{sample}_2_fastqc.html", sample=SAMPLES)
+    output:
+        "RNA_seq_pipeline/results/multiqc_raw.html"
+    shell:
+        """
+        multiqc RNA_seq_pipeline/fastqc -o RNA_seq_pipeline/results -n multiqc_raw.html
+        """
+
+# 4. Fastp (Paired-end trimming + QC)
+
+rule fastp:
+    input:
+        r1 = FASTQ_DIR + "/{sample}_1.fastq.gz",
+        r2 = FASTQ_DIR + "/{sample}_2.fastq.gz"
+    output:
+        r1_t = "RNA_seq_pipeline/trimmed/{sample}_1.trimmed.fastq.gz",
+        r2_t = "RNA_seq_pipeline/trimmed/{sample}_2.trimmed.fastq.gz",
+        html = "RNA_seq_pipeline/fastp/{sample}.html",
+        json = "RNA_seq_pipeline/fastp/{sample}.json"
+    threads: 4
+    shell:
+        """
+        fastp -i {input.r1} -I {input.r2} \
+              -o {output.r1_t} -O {output.r2_t} \
+              --html {output.html} --json {output.json} -w {threads}
+        """
+
+# 5. MultiQC for trimmed reads
+
+rule multiqc_trimmed:
+    input:
+        expand("RNA_seq_pipeline/fastp/{sample}.html", sample=SAMPLES)
+    output:
+        "RNA_seq_pipeline/results/multiqc_trimmed.html"
+    shell:
+        """
+        multiqc RNA_seq_pipeline/fastp -o RNA_seq_pipeline/results -n multiqc_trimmed.html
+        """
+
+# 6. HISAT2 Alignment
+
+rule hisat2:
+    input:
+        r1 = "RNA_seq_pipeline/trimmed/{sample}_1.trimmed.fastq.gz",
+        r2 = "RNA_seq_pipeline/trimmed/{sample}_2.trimmed.fastq.gz"
+    output:
+        "RNA_seq_pipeline/alignment/{sample}.bam"
+    threads: 4
+    shell:
+        """
+        hisat2 -x {HISAT2_INDEX} -1 {input.r1} -2 {input.r2} \
+            | samtools view -bS - \
+            | samtools sort -@ {threads} -o {output}
+        samtools index {output}
+        """
+
+# 7. FeatureCounts (Gene-level counts)
+
+rule featurecounts:
+    input:
+        expand("RNA_seq_pipeline/alignment/{sample}.bam", sample=SAMPLES)
+    output:
+        "RNA_seq_pipeline/counts/featurecounts.txt"
+    threads: 4
+    shell:
+        """
+        featureCounts -T {threads} -p -t exon -g gene_id \
+            -a {GTF} -o {output} {input}
+        """
